@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "http://example.com/searchQuery.json",
+  "type": "object",
+  "properties": {
+    "searchTerm": {
+      "type": "string"
+    },
+    "page": {
+      "type": "number"
+    }
+  },
+  "additionalProperties": false,
+  "required": ["searchTerm", "page"]
+}
