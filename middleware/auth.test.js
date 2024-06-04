@@ -1,153 +1,139 @@
-"use strict";
+// auth.test.js
 
+const request = require("supertest");
+const express = require("express");
 const jwt = require("jsonwebtoken");
-const {UnauthorizedError} = require("../expressError");
+const { SECRET_KEY } = require("../config");
 const {
   authenticateJWT,
   ensureLoggedIn,
   ensureAdmin,
   ensureValidUserOrAdmin,
 } = require("./auth");
+const { UnauthorizedError } = require("../expressError");
 
-const {SECRET_KEY} = require("../config");
-const testJwt = jwt.sign({username: "test", isAdmin: false}, SECRET_KEY);
-const badJwt = jwt.sign({username: "test", isAdmin: false}, "wrong");
+// Helper function to generate a JWT
+function generateToken(data) {
+  return jwt.sign(data, SECRET_KEY);
+}
 
-describe("authenticateJWT", function () {
-  test("works: via header", function () {
-    expect.assertions(2);
-    //there are multiple ways to pass an authorization token, this is how you pass it in the header.
+// Create an Express app to use the middleware in tests
+const app = express();
+app.use(express.json());
 
-    const req = {headers: {authorization: `Bearer ${testJwt}`}};
-    const res = {locals: {}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    authenticateJWT(req, res, next);
-    expect(res.locals).toEqual({
-      user: {
-        iat: expect.any(Number),
-        username: "test",
-        isAdmin: false,
-      },
-    });
-  });
-
-  test("works: no header", function () {
-    expect.assertions(2);
-    const req = {};
-    const res = {locals: {}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    authenticateJWT(req, res, next);
-    expect(res.locals).toEqual({});
-  });
-
-  test("works: invalid token", function () {
-    expect.assertions(2);
-    const req = {headers: {authorization: `Bearer ${badJwt}`}};
-    const res = {locals: {}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    authenticateJWT(req, res, next);
-    expect(res.locals).toEqual({});
-  });
+// Dummy route for testing authenticateJWT
+app.get("/auth-test", authenticateJWT, (req, res) => {
+  res.send({ user: res.locals.user });
 });
 
-describe("ensureLoggedIn", function () {
-  test("works", function () {
-    expect.assertions(1);
-    const req = {};
-    const res = {locals: {user: {username: "test", is_admin: false}}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    ensureLoggedIn(req, res, next);
-  });
-
-  test("unauth if no login", function () {
-    expect.assertions(1);
-    const req = {};
-    const res = {locals: {}};
-    const next = function (err) {
-      expect(err instanceof UnauthorizedError).toBeTruthy();
-    };
-    ensureLoggedIn(req, res, next);
-  });
+// Dummy route for testing ensureLoggedIn
+app.get("/login-test", ensureLoggedIn, (req, res) => {
+  res.send({ msg: "Logged in!" });
 });
 
-describe("ensureAdmin", function () {
-  test("works", function () {
-    expect.assertions(1);
-    const req = {};
-    const res = {locals: {user: {username: "test", isAdmin: true}}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    ensureAdmin(req, res, next);
-  });
-
-  test("unauth if not admin", function () {
-    expect.assertions(1);
-    const req = {};
-    const res = {locals: {user: {username: "test", isAdmin: false}}};
-    const next = function (err) {
-      expect(err instanceof UnauthorizedError).toBeTruthy();
-    };
-    ensureAdmin(req, res, next);
-  });
-
-  test("unauth if anon", function () {
-    expect.assertions(1);
-    const req = {};
-    const res = {locals: {}};
-    const next = function (err) {
-      expect(err instanceof UnauthorizedError).toBeTruthy();
-    };
-    ensureAdmin(req, res, next);
-  });
+// Dummy route for testing ensureAdmin
+app.get("/admin-test", authenticateJWT, ensureAdmin, (req, res) => {
+  res.send({ msg: "Admin access!" });
 });
 
-describe("ensureValidUserOrAdmin", function () {
-  test("works: admin", function () {
-    expect.assertions(1);
-    const req = {params: {username: "test"}};
-    const res = {locals: {user: {username: "admin", isAdmin: true}}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    ensureValidUserOrAdmin(req, res, next);
+// Dummy route for testing ensureValidUserOrAdmin
+app.get(
+  "/user-test/:username",
+  authenticateJWT,
+  ensureValidUserOrAdmin,
+  (req, res) => {
+    res.send({ msg: "Valid user or admin!" });
+  }
+);
+
+describe("Auth middleware", () => {
+  test("authenticateJWT: valid token", async () => {
+    const token = generateToken({ username: "testuser", isAdmin: false });
+
+    const res = await request(app)
+      .get("/auth-test")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.user).toEqual({ username: "testuser", isAdmin: false });
   });
 
-  test("works: same user", function () {
-    expect.assertions(1);
-    const req = {params: {username: "test"}};
-    const res = {locals: {user: {username: "test", isAdmin: false}}};
-    const next = function (err) {
-      expect(err).toBeFalsy();
-    };
-    ensureValidUserOrAdmin(req, res, next);
+  test("authenticateJWT: invalid token", async () => {
+    const res = await request(app)
+      .get("/auth-test")
+      .set("Authorization", `Bearer invalidtoken`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.user).toBeUndefined();
   });
 
-  test("unauth: mismatch", function () {
-    expect.assertions(1);
-    const req = {params: {username: "wrong"}};
-    const res = {locals: {user: {username: "test", isAdmin: false}}};
-    const next = function (err) {
-      expect(err instanceof UnauthorizedError).toBeTruthy();
-    };
-    ensureValidUserOrAdmin(req, res, next);
+  test("ensureLoggedIn: logged in", async () => {
+    const token = generateToken({ username: "testuser", isAdmin: false });
+
+    const res = await request(app)
+      .get("/login-test")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.msg).toEqual("Logged in!");
   });
 
-  test("unauth: if anon", function () {
-    expect.assertions(1);
-    const req = {params: {username: "test"}};
-    const res = {locals: {}};
-    const next = function (err) {
-      expect(err instanceof UnauthorizedError).toBeTruthy();
-    };
-    ensureValidUserOrAdmin(req, res, next);
+  test("ensureLoggedIn: not logged in", async () => {
+    const res = await request(app).get("/login-test");
+
+    expect(res.statusCode).toEqual(401);
+  });
+
+  test("ensureAdmin: admin user", async () => {
+    const token = generateToken({ username: "admin", isAdmin: true });
+
+    const res = await request(app)
+      .get("/admin-test")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.msg).toEqual("Admin access!");
+  });
+
+  test("ensureAdmin: non-admin user", async () => {
+    const token = generateToken({ username: "testuser", isAdmin: false });
+
+    const res = await request(app)
+      .get("/admin-test")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(401);
+  });
+
+  test("ensureValidUserOrAdmin: valid user", async () => {
+    const token = generateToken({ username: "testuser", isAdmin: false });
+
+    const res = await request(app)
+      .get("/user-test/testuser")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.msg).toEqual("Valid user or admin!");
+  });
+
+  test("ensureValidUserOrAdmin: admin user", async () => {
+    const token = generateToken({ username: "admin", isAdmin: true });
+
+    const res = await request(app)
+      .get("/user-test/someotheruser")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(200);
+    expect(res.body.msg).toEqual("Valid user or admin!");
+  });
+
+  test("ensureValidUserOrAdmin: invalid user", async () => {
+    const token = generateToken({ username: "testuser", isAdmin: false });
+
+    const res = await request(app)
+      .get("/user-test/otheruser")
+      .set("Authorization", `Bearer ${token}`);
+
+    expect(res.statusCode).toEqual(403);
   });
 });

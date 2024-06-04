@@ -3,8 +3,8 @@
 /** Convenience middleware to handle common auth cases in routes. */
 
 const jwt = require("jsonwebtoken");
-const {SECRET_KEY} = require("../config");
-const {UnauthorizedError} = require("../expressError");
+const { SECRET_KEY } = require("../config");
+const { UnauthorizedError } = require("../expressError");
 
 /** Middleware: Authenticate user.
  *
@@ -14,6 +14,7 @@ const {UnauthorizedError} = require("../expressError");
  * It's not an error if no token was provided or if the token is not valid.
  */
 
+// Middleware to authenticate JWT tokens
 function authenticateJWT(req, res, next) {
   try {
     const authHeader = req.headers && req.headers.authorization;
@@ -27,14 +28,10 @@ function authenticateJWT(req, res, next) {
   }
 }
 
-/** Middleware to use when they must be logged in.
- *
- * If not, raises Unauthorized.
- */
-
+// Middleware to ensure user is logged in
 function ensureLoggedIn(req, res, next) {
   try {
-    if (!res.locals.user) throw new UnauthorizedError();
+    if (!req.user) throw new UnauthorizedError();
     return next();
   } catch (err) {
     return next(err);
@@ -67,12 +64,13 @@ function ensureAdmin(req, res, next) {
 function ensureValidUserOrAdmin(req, res, next) {
   try {
     const user = res.locals.user;
-    if (!(user && (user.isAdmin || user.username === req.params.username))) {
-      throw new UnauthorizedError();
+    if (user && (user.username === req.params.username || user.isAdmin)) {
+      return next();
+    } else {
+      return res.status(403).json({ error: "Forbidden" });
     }
-    return next();
   } catch (err) {
-    return next(err);
+    return res.status(401).json({ error: "Unauthorized" });
   }
 }
 

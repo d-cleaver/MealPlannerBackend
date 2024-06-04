@@ -26,6 +26,76 @@ class API {
 
     return resultsJSON;
   }
+
+  static async getRecipeSummary(recipeId) {
+    if (!API_KEY) {
+      throw new BadRequestError("API key not found!");
+    }
+
+    const summaryURL = new URL(
+      `https://api.spoonacular.com/recipes/${recipeId}/summary`
+    );
+    const summaryParams = {
+      apiKey: API_KEY,
+      recipeId: parseInt(recipeId),
+    };
+    summaryURL.search = new URLSearchParams(summaryParams).toString();
+    const summarySearchResponse = await fetch(summaryURL);
+    const summaryResultsJSON = await summarySearchResponse.json();
+
+    return summaryResultsJSON;
+  }
+
+  static async getFavoriteRecipesByIDs(ids) {
+    console.log("Received recipe IDs for fetching favorites:", ids);
+    if (!API_KEY) {
+      throw new BadRequestError("API key not found!");
+    }
+    const favoriteURL = new URL(
+      "https://api.spoonacular.com/recipes/informationBulk"
+    );
+    const favoriteParams = {
+      apiKey: API_KEY,
+      ids: ids.join(","),
+    };
+    favoriteURL.search = new URLSearchParams(favoriteParams);
+    const favoriteSearchResponse = await fetch(favoriteURL);
+    const favoriteResultsJSON = await favoriteSearchResponse.json();
+
+    // console.log("Spoonacular API response:", favoriteResultsJSON);
+
+    return { results: favoriteResultsJSON };
+  }
+
+  static async getRecipeCard(recipeId) {
+    if (!API_KEY) {
+      throw new BadRequestError("API key not found!");
+    }
+
+    const cardURL = new URL(
+      `https://api.spoonacular.com/recipes/${recipeId}/card`
+    );
+    const cardParams = {
+      apiKey: API_KEY,
+      mask: "heartMask",
+      backgroundImage: "none",
+      backgroundColor: "CFB53B",
+      fontColor: "800080",
+      recipeId: parseInt(recipeId),
+    };
+    cardURL.search = new URLSearchParams(cardParams).toString();
+    const cardSearchResponse = await fetch(cardURL);
+    if (!cardSearchResponse.ok) {
+      console.error(
+        "Error response from Spoonacular API:",
+        await cardSearchResponse.text()
+      );
+      throw new Error("Error fetching recipe card from Spoonacular API");
+    }
+    const cardResultsJSON = await cardSearchResponse.json();
+
+    return cardResultsJSON;
+  }
 }
 
 module.exports = API;
