@@ -1,6 +1,6 @@
 # Flavorite Recipes
 
-## Website URL: [Link to Deployed Site]
+## Website URL: [https://mealplannerfrontend2.onrender.com/]
 
 ### Description
 
