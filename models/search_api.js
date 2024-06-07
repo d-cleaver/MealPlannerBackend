@@ -79,9 +79,9 @@ class API {
       apiKey: API_KEY,
       mask: "heartMask",
       backgroundImage: "none",
-      backgroundColor: "CFB53B",
-      fontColor: "800080",
-      recipeId: parseInt(recipeId),
+      backgroundColor: "46eb6f",
+      fontColor: "#040f0f",
+      recipeId: recipeId,
     };
     cardURL.search = new URLSearchParams(cardParams).toString();
     const cardSearchResponse = await fetch(cardURL);

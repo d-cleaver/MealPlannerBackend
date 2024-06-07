@@ -5,7 +5,7 @@
 require("dotenv").config();
 require("colors");
 
-const API_KEY = "b9c1965fef7d41a1995e02f89001945a";
+const API_KEY = "cc4e1c7194e3412a8f00b837360f49d6";
 // "097a2ba5f3614d5daccac162f45ba224"
 // "cc4e1c7194e3412a8f00b837360f49d6"
 // "b9c1965fef7d41a1995e02f89001945a"
